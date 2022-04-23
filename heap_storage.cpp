@@ -182,6 +182,108 @@ void SlottedPage::put_header(RecordID id, u16 size, u16 loc) {
     put_n(4*id + 2, loc);
 }
 
+/*
+======================================================================================================================================
+Heap File
+*/
+
+// Takes the name of the relation that is DbFile(name)
+//and any other specialized parameters required by the subclass HeapFile.
+// last = block_id, that is SlottedPage or DbBlock
+
+/*
+HeapFile::HeapFile(std::string name) : DbFile(name), dbfilename(name), last(0), closed(true), db(_DB_ENV, 0) {
+}
+*/
+
+// Create the database file that will store the blocks for this relation.
+void HeapFile::create(void){
+    db_open(DB_CREATE | DB_EXCL);
+    std::unique_ptr<SlottedPage> ptr(this->get_new());
+    this->put(ptr.get());
+}
+
+// open the database file.
+void HeapFile::open(void){
+    db_open();
+}
+
+void HeapFile::db_open(uint flags){
+    if(!closed) return;
+
+    this->db.get_DB();
+    this->db.set_re_len(DbBlock::BLOCK_SZ);
+    // from the database name(name) open the data base file(dbfilename)
+    db.open(nullptr,this->dbfilename.c_str(),this->name.c_str(),DB_RECNO,flags,0);
+    this->last = get_last_block_id();
+    closed = false;
+}
+
+// write a block to the file.
+// put take in an object of DbBlock (DbBlock *block) 
+void HeapFile::put(DbBlock *block){
+    // virtual BlockID get_block_id() { return block_id; }
+    BlockID block_id = block->get_block_id();
+    Dbt key(&block_id, sizeof(block_id));
+    db.put(nullptr,&key,block->get_block(),0);
+}
+
+// close the database file
+void HeapFile::close(void){
+    this->db.close(0);
+    this->closed = true;
+}
+
+// delete the database file. 
+void HeapFile::drop(void){
+    close();
+    if(std::remove(dbfilename.c_str()) == -1 ){
+        throw "Cannot delete the database file";
+    }
+}
+
+// get block know block id on disk
+SlottedPage* HeapFile::get(BlockID block_id){
+    // create an instance of Dbt 
+    Dbt data;
+    Dbt key(&block_id, sizeof(block_id));
+    // get the block(record) from the database
+    this->db.get(nullptr,&key,&data,0);
+    // pass data block retrieved from database
+    SlottedPage* block = new SlottedPage(data,block_id);
+    return block;
+}
+
+// Allocate a new block for the database file and add to the end of the file
+// Returns the new empty DbBlock that is managing the records in this block and its block id.
+SlottedPage* HeapFile::get_new(void) {
+    char * block = new char[DbBlock::BLOCK_SZ];
+    std::memset(block, 0, sizeof(block));
+    // construct an instance of class Dbt 
+    Dbt data(block, sizeof(block));
+
+    int block_id = ++this->last;
+    Dbt key(&block_id, sizeof(block_id));
+
+    // write out an empty block and read it back in so Berkeley DB is managing the memory
+    // last = block_id
+    SlottedPage* page = new SlottedPage(data, this->last, true);
+    this->db.put(nullptr, &key, &data, 0); // write it out with initialization applied
+    this->db.get(nullptr, &key, &data, 0);
+    return page;
+}
+
+
+// std::vector<BlockID> BlockIDs;
+//  iterate through all the block ids in the file.
+BlockIDs * HeapFile::block_ids(){
+    BlockIDs* block_ids = new BlockIDs;
+    for(BlockID id = 1; id <= this->last+1;id++){
+        block_ids->push_back(id);
+    }
+    return block_ids;
+}
+
 // return the bits to go into the file
 // caller responsible for freeing the returned Dbt and its enclosed ret->get_data().
 // Dbt* HeapTable::marshal(const ValueDict* row) {

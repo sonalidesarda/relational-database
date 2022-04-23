@@ -82,7 +82,7 @@ protected:
  */
 class HeapFile : public DbFile {
 public:
-    HeapFile(std::string name) : DbFile(name), dbfilename(""), last(0), closed(true), db(_DB_ENV, 0) {}
+    HeapFile(std::string name) : DbFile(name), dbfilename(name), last(0), closed(true), db(_DB_ENV, 0) {}
 
     virtual ~HeapFile() {}
 
