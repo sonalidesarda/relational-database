@@ -2,6 +2,7 @@
 CPSC 5300 Sprint Verano, Seattle University, Spring 2022
 
 Author: Han Duong
+References heap_storage_test.cpp: Luan(Remi) Ta - Mink 
 
 Milestone1:
 This milestone is a program written in C++ that runs from the command line, which take in user input and parse it to formatted SQL statement.
