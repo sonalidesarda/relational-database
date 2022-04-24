@@ -22,4 +22,5 @@ Milestone2:
 This milestone is a program written in C++ that mimics a storage engine. It includes: DbBlock, DbFile, and DbRelation and their represetation in the heap storage engine: SlottedPage, HeapFile, and HeapTable.
 
 Build the program, use : $ make test
+
 Run this program with tests, enter: $ ./test out
