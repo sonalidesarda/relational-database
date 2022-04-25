@@ -32,7 +32,7 @@ RecordID SlottedPage::add(const Dbt* data) {
     return id;
 }
 
-// Get a record's data for a given record id
+// Get a record's data for a given record 
 // Dbt = a wrapper of berkeley database, points to a buffer (loc, size)
 Dbt* SlottedPage::get(RecordID record_id){
     u16 size;
@@ -58,7 +58,7 @@ void SlottedPage::get_header(u16 &size, u16 &loc, RecordID id){
     loc = get_n(4 * id + 2);
 }
 
-// Replace the record with the given data.
+// Replace the record with given data.
 // Raises ValueError if it won't fit.
 void SlottedPage::put(RecordID record_id, const Dbt &data){
     u16 size;
