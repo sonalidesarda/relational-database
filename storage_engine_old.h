@@ -33,6 +33,7 @@ typedef std::length_error DbBlockNoRoomError;
  * (DbBlock's belong to DbFile's.)
  * 
  * Methods for putting/getting records in blocks:
+ * 	initialize_new()
  * 	add(data)
  * 	get(record_id)
  * 	put(record_id, data)
@@ -58,6 +59,11 @@ public:
     virtual ~DbBlock() {}
 
     /**
+     * Reinitialize this block to an empty new block.
+     */
+    virtual void initialize_new() {}
+
+    /**
      * Add a new record to this block.
      * @param data  the data to store for the new record
      * @returns     the new RecordID for the new record
@@ -70,7 +76,7 @@ public:
      * @param record_id  which record to fetch
      * @returns          the data stored for the given record
      */
-    virtual Dbt *get(RecordID record_id) const = 0;
+    virtual Dbt *get(RecordID record_id) = 0;
 
     /**
      * Change the data stored for a record in this block.
@@ -91,7 +97,7 @@ public:
      * Get all the record ids in this block (excluding deleted ones).
      * @returns  pointer to list of record ids (freed by caller)
      */
-    virtual RecordIDs *ids() const = 0;
+    virtual RecordIDs *ids() = 0;
 
     /**
      * Access the whole block's memory as a BerkeleyDB Dbt pointer.
@@ -181,7 +187,7 @@ public:
      * FIXME - not a good long-term approach, but we'll do this until we put in iterators
      * @returns  a pointer to vector of BlockIDs (freed by caller)
      */
-    virtual BlockIDs *block_ids() const = 0;
+    virtual BlockIDs *block_ids() = 0;
 
 protected:
     std::string name;  // filename (or part of it)
@@ -196,8 +202,6 @@ public:
     enum DataType {
         INT, TEXT
     };
-
-    ColumnAttribute() : data_type(INT) {}
 
     ColumnAttribute(DataType data_type) : data_type(data_type) {}
 
@@ -226,10 +230,6 @@ public:
     Value(int32_t n) : n(n) { data_type = ColumnAttribute::INT; }
 
     Value(std::string s) : n(0), s(s) { data_type = ColumnAttribute::TEXT; }
-
-    bool operator==(const Value &other) const;
-
-    bool operator!=(const Value &other) const;
 };
 
 // More type aliases
@@ -239,7 +239,6 @@ typedef std::vector<ColumnAttribute> ColumnAttributes;
 typedef std::pair<BlockID, RecordID> Handle;
 typedef std::vector<Handle> Handles;  // FIXME: will need to turn this into an iterator at some point
 typedef std::map<Identifier, Value> ValueDict;
-typedef std::vector<ValueDict *> ValueDicts;
 
 
 /**
@@ -359,15 +358,6 @@ public:
      * @returns             dictionary of values from row (keyed by column_names)
      */
     virtual ValueDict *project(Handle handle, const ColumnNames *column_names) = 0;
-
-    /**
-     * Return a sequence of values for handle given by column_names (from dictionary)
-     * (SELECT <column_names>).
-     * @param handle        row to get values from
-     * @param column_names  list of column names to project (taken from keys of dict)
-     * @return              dictionary of values from row (keyed by column_names)
-     */
-    virtual ValueDict *project(Handle handle, const ValueDict *column_names);
 
 protected:
     Identifier table_name;

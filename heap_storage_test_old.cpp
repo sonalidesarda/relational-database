@@ -7,7 +7,7 @@
  */
 
 #include "db_cxx.h"
-#include "heap_storage.h"
+#include "heap_storage_old.h"
 #include <string.h>
 #include <memory>
 

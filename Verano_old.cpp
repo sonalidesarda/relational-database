@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 #include "SQLParser.h"
+#include "HeapTable.h"
 
 using namespace hsql;
 
@@ -66,6 +67,7 @@ std::string execute(const SQLStatement *parseTree){
             break;
         case hsql::kStmtCreate:
             stm += parseCreateStm((CreateStatement *) parseTree);
+
             break;
         case hsql::kStmtInsert:
             stm += parseInsertStm((InsertStatement *) parseTree);
