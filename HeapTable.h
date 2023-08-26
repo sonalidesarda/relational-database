@@ -7,7 +7,7 @@
  */
 #pragma once
 
-#include "storage_engine_old.h"
+#include "storage_engine.h"
 #include "SlottedPage.h"
 #include "HeapFile.h"
 
@@ -48,6 +48,8 @@ public:
     virtual Handles *select();
 
     virtual Handles *select(const ValueDict *where);
+
+    virtual Handles* select(Handles *current_selection, const ValueDict* where);
 
     virtual ValueDict *project(Handle handle);
 

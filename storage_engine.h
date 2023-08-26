@@ -94,6 +94,23 @@ public:
     virtual RecordIDs *ids() const = 0;
 
     /**
+     * Delete all the records from this block.
+     */
+    virtual void clear() = 0;
+
+    /**
+     * Get number of active (undeleted) records in this block.
+     * @returns  number of active records
+     */
+    virtual u_int16_t size() const = 0;
+
+    /**
+     * Get the number of bytes not currently used to store data or for overhead.
+     * @returns  number of unused bytes
+     */
+    virtual u_int16_t unused_bytes() const = 0;
+
+    /**
      * Access the whole block's memory as a BerkeleyDB Dbt pointer.
      * @returns  Dbt used by this block
      */
@@ -194,7 +211,7 @@ protected:
 class ColumnAttribute {
 public:
     enum DataType {
-        INT, TEXT
+        INT, TEXT, BOOLEAN
     };
 
     ColumnAttribute() : data_type(INT) {}
@@ -225,11 +242,15 @@ public:
 
     Value(int32_t n) : n(n) { data_type = ColumnAttribute::INT; }
 
-    Value(std::string s) : n(0), s(s) { data_type = ColumnAttribute::TEXT; }
+    Value(std::string s) : s(s) { data_type = ColumnAttribute::TEXT; }
 
     bool operator==(const Value &other) const;
 
     bool operator!=(const Value &other) const;
+
+    bool operator<(const Value &other) const;
+
+    friend std::ostream &operator<<(std::ostream &out, const Value &value);
 };
 
 // More type aliases
@@ -253,15 +274,15 @@ public:
 
 /**
  * @class DbRelation - top-level object handling a physical database relation
- * 
+ *
  * Methods:
  * 	create()
  * 	create_if_not_exists()
  * 	drop()
- * 	
+ *
  * 	open()
  * 	close()
- * 	
+ *
  *	insert(row)
  *	update(handle, new_values)
  *	del(handle)
@@ -345,6 +366,15 @@ public:
     virtual Handles *select(const ValueDict *where) = 0;
 
     /**
+     * Conceptually, execute: SELECT <handle> FROM <table_name> WHERE <where>
+     * This version does a restricted selection based on current_selection.
+     * @param current_selection  restrict selection to be from these rows
+     * @param where              where-clause predicates
+     * @returns                  a pointer to a list of handles for qualifying rows (freed by caller)
+     */
+    virtual Handles *select(Handles *current_selection, const ValueDict *where) = 0;
+
+    /**
      * Return a sequence of all values for handle (SELECT *).
      * @param handle  row to get values from
      * @returns       dictionary of values from row (keyed by all column names)
@@ -369,9 +399,123 @@ public:
      */
     virtual ValueDict *project(Handle handle, const ValueDict *column_names);
 
+    // additional versions of project for multiple rows
+    virtual ValueDicts *project(Handles *handles);
+
+    virtual ValueDicts *project(Handles *handles, const ColumnNames *column_names);
+
+    virtual ValueDicts *project(Handles *handles, const ValueDict *column_names);
+
+    /**
+     * Accessor for column_names.
+     * @returns column_names   list of column names for this relation, in order
+     */
+    virtual const ColumnNames &get_column_names() const {
+        return column_names;
+    }
+
+    /**
+     * Accessor for column_attributes.
+     * @returns column_attributes dictionary of column attributes keyed by column names
+     */
+    virtual const ColumnAttributes get_column_attributes() const {
+        return column_attributes;
+    }
+
+    /**
+     * A version of accessor for column_attributes that further
+     * restricts returned attributes to a subset of columns.
+     * @param select_column_names  list of column names to get attributes for
+     * @returns                    column_attributes dictionary of column attributes keyed
+     *                             by column names
+     */
+    virtual ColumnAttributes *get_column_attributes(const ColumnNames &select_column_names) const;
+
+    /**
+     * Accessor method for table_name
+     * @returns  table_name
+     */
+    virtual Identifier get_table_name() const {
+        return table_name;
+    }
+
 protected:
     Identifier table_name;
     ColumnNames column_names;
     ColumnAttributes column_attributes;
+};
+
+
+class DbIndex {
+public:
+    /**
+     * Maximum number of columns in a composite index
+     */
+    static const uint MAX_COMPOSITE = 32U;
+
+    // ctor/dtor
+    DbIndex(DbRelation &relation, Identifier name, ColumnNames key_columns, bool unique) : relation(relation),
+                                                                                           name(name),
+                                                                                           key_columns(key_columns),
+                                                                                           unique(unique) {}
+
+    virtual ~DbIndex() {}
+
+    /**
+     * Create this index.
+     */
+    virtual void create() = 0;
+
+    /**
+     * Drop this index.
+     */
+    virtual void drop() = 0;
+
+    /**
+     * Open this index.
+     */
+    virtual void open() = 0;
+
+    /**
+     * Close this index.
+     */
+    virtual void close() = 0;
+
+    /**
+     * Lookup a specific search key.
+     * @param key_values  dictionary of values for the search key
+     * @returns           list of DbFile handles for records with key_values
+     */
+    virtual Handles *lookup(ValueDict *key_values) const = 0;
+
+    /**
+     * Lookup a range of search keys.
+     * @param min_key  dictionary of min (inclusive) search key
+     * @param max_key  dictionary of max (inclusive) search key
+     * @returns        list of DbFile handles for records in range
+     */
+    virtual Handles *range(ValueDict *min_key, ValueDict *max_key) const {
+        throw DbRelationError("range index query not supported");
+    }
+
+    /**
+     * Insert the index entry for the given record.
+     * @param record  handle (into relation) to the record to insert
+     *                (must be in the relation at time of insertion)
+     */
+    virtual void insert(Handle record) = 0;
+
+    /**
+     * Delete the index entry for the given record.
+     * @param record  handle (into relation) to the record to remove
+     *                (must still be in the relation at time of removal)
+     */
+    virtual void del(Handle record) = 0;
+
+protected:
+    DbRelation &relation;
+    Identifier name;
+    ColumnNames key_columns;
+    bool unique;
 };
 
